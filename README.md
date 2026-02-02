@@ -1,92 +1,89 @@
 # Twitch Translator
 
-A low-latency Twitch live translation system (ASR -> Translate -> TTS) written in Rust.
+A low-latency Twitch live translation system that captures audio from a Twitch stream, translates it to a specified language, and provides emotional text-to-speech output.
 
 ## Features
 
-- **Low-latency audio ingestion** from Twitch HLS streams
-- **Streaming ASR** (Automatic Speech Recognition) - currently using a placeholder implementation
-- **Emotion analysis** - currently using a placeholder implementation
-- **Translation** - currently using a placeholder implementation
-- **Emotional TTS** (Text-to-Speech) - currently using a placeholder implementation
-- **Pipeline architecture** for efficient processing
-- **CLI interface** for easy usage
+- **Audio Ingestion**: Captures audio from Twitch streams via HLS
+- **Speech Recognition**: Real-time ASR using Whisper
+- **Emotion Analysis**: Detects emotions from both prosody and text
+- **Translation**: Translates speech to target language using DeepL
+- **Emotional TTS**: Converts translated text to speech with emotional prosody using ElevenLabs
+- **Low Latency**: Optimized pipeline for minimal delay
+- **High Performance**: Written in Rust for maximum efficiency
 
-## Architecture
+## Requirements
 
-The system is composed of several components:
-
-1. **Ingestor**: Fetches audio segments from Twitch HLS streams
-2. **Decoder**: Converts audio segments to PCM format
-3. **ASR**: Transcribes audio to text (placeholder implementation)
-4. **Emotion Analyzer**: Analyzes emotion from prosody and text (placeholder implementation)
-5. **Translator**: Translates text to target language (placeholder implementation)
-6. **TTS**: Synthesizes translated text to speech with emotional prosody (placeholder implementation)
-7. **Playback**: Plays synthesized audio (placeholder implementation)
-8. **Pipeline**: Orchestrates all components
+- Rust (latest stable version)
+- FFmpeg installed and available in PATH
+- DeepL API key
+- ElevenLabs API key
 
 ## Installation
 
-1. Install Rust: https://www.rust-lang.org/tools/install
-2. Clone the repository:
-   ```
-   git clone https://github.com/your-username/twitch-translator.git
-   cd twitch-translator
-   ```
-3. Build the project:
-   ```
-   cargo build --release
-   ```
+```bash
+git clone https://github.com/your-username/twitch-translator.git
+cd twitch-translator
+cargo build --release
+```
 
 ## Usage
 
-```
-cargo run --release -- --channel <channel-name> --target-lang <language-code>
+```bash
+# Translate a Twitch channel
+cargo run --release -- --channel <channel-name> --target-lang <language-code> --deepl-api-key <deepl-key> --elevenlabs-api-key <elevenlabs-key>
+
+# Translate from a direct URL
+cargo run --release -- --url <stream-url> --target-lang <language-code> --deepl-api-key <deepl-key> --elevenlabs-api-key <elevenlabs-key>
 ```
 
-Example:
-```
-cargo run --release -- --channel twitch_channel --target-lang es
-```
+### Options
+
+- `--channel <CHANNEL>`: Twitch channel name to translate
+- `--url <URL>`: Direct stream URL to translate
+- `--target-lang <TARGET_LANG>`: Target language for translation (default: pt-BR)
+- `--deepl-api-key <DEEPL_API_KEY>`: DeepL API key for translation
+- `--elevenlabs-api-key <ELEVENLABS_API_KEY>`: ElevenLabs API key for TTS
+- `--latency-ms <LATENCY_MS>`: Target latency in milliseconds (default: 1500)
+- `--twitch-client-id <TWITCH_CLIENT_ID>`: Twitch client ID (default: kimne78kx3ncx6brgo4mv6wki5h1ko)
+- `--twitch-oauth-token <TWITCH_OAUTH_TOKEN>`: Twitch OAuth token for authentication
+- `--hls-audio-only`: Only ingest audio from HLS stream
+- `--log-level <LOG_LEVEL>`: Log level (default: info)
+
+## Architecture
+
+The system is built as a pipeline with the following components:
+
+1. **Ingestor**: Captures audio from Twitch HLS streams
+2. **Decoder**: Decodes audio segments to PCM
+3. **ASR**: Transcribes speech to text using Whisper
+4. **Translator**: Translates text to target language using DeepL
+5. **TTS**: Converts translated text to speech with emotional prosody using ElevenLabs
+6. **Playback**: Plays the synthesized audio
 
 ## Configuration
 
-The application can be configured using command-line arguments or environment variables:
+API keys can be provided via command line arguments or environment variables:
 
-- `--channel`: Twitch channel name
-- `--target-lang`: Target language for translation (default: pt-BR)
-- `--latency-ms`: Target latency in milliseconds (default: 1500)
-- `--twitch-client-id`: Twitch client ID (can also be set via TWITCH_CLIENT_ID environment variable)
-- `--twitch-oauth-token`: Twitch OAuth token (can also be set via TWITCH_OAUTH_TOKEN environment variable)
-- `--deepl-api-key`: DeepL API key for translation (can also be set via DEEPL_API_KEY environment variable)
-- `--elevenlabs-api-key`: ElevenLabs API key for TTS (can also be set via ELEVENLABS_API_KEY environment variable)
+- `DEEPL_API_KEY`: DeepL API key
+- `ELEVENLABS_API_KEY`: ElevenLabs API key
+- `TWITCH_CLIENT_ID`: Twitch client ID
+- `TWITCH_OAUTH_TOKEN`: Twitch OAuth token
 
-## Limitations
+## Performance Optimization
 
-This is a proof-of-concept implementation with several limitations:
+The system is designed for low latency with several optimization techniques:
 
-1. **ASR**: The ASR component is not implemented due to dependency issues with `mutter` crate
-2. **Emotion Analysis**: The emotion analysis component is not implemented
-3. **Translation**: The translation component is not implemented
-4. **TTS**: The TTS component is not implemented
-5. **Playback**: The playback component is not implemented
-
-## Future Work
-
-1. Implement a proper ASR backend (e.g., using Whisper.cpp or similar)
-2. Implement emotion analysis
-3. Integrate with a translation service (e.g., DeepL, Google Translate)
-4. Integrate with an emotional TTS service (e.g., ElevenLabs)
-5. Implement low-latency audio playback
-6. Optimize performance for real-time processing
-7. Add support for more input sources
-8. Add support for more output languages
+- Asynchronous pipeline processing
+- Efficient buffering strategies
+- Minimal memory allocations
+- Optimized audio processing
 
 ## License
 
 This project is licensed under either of:
 
-- Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license (http://opensource.org/licenses/MIT)
+- Apache License, Version 2.0
+- MIT License
 
 at your option.

@@ -3,7 +3,18 @@ mod analyzer;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-pub use analyzer::{BasicEmotionAnalyzer, Emotion, EmotionAnalyzer, EmotionError};
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub enum Emotion {
+    Neutral,
+    Happy,
+    Sad,
+    Angry,
+    Fearful,
+    Disgusted,
+    Surprised,
+}
+
+pub use analyzer::{BasicEmotionAnalyzer, EmotionAnalyzer, EmotionError};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 pub struct ProsodyFeatures {

@@ -14,6 +14,7 @@ futures.workspace = true
 ffmpeg-sidecar.workspace = true
 m3u8-rs.workspace = true
 reqwest.workspace = true
+rodio = "0.17"
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

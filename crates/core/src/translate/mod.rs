@@ -1,9 +1,11 @@
+mod deepl;
 mod dummy;
 
 use crate::config::TargetLang;
 use futures::future::BoxFuture;
 use serde::{Deserialize, Serialize};
 
+pub use deepl::DeepLTranslator;
 pub use dummy::DummyTranslator;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]

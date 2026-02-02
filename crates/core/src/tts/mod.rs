@@ -1,10 +1,12 @@
 mod basic;
+mod elevenlabs;
 
 use crate::emotion::ProsodyFeatures;
 use futures::future::BoxFuture;
 use serde::{Deserialize, Serialize};
 
 pub use basic::BasicTtsClient;
+pub use elevenlabs::ElevenLabsTtsClient;
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct VoiceId(pub String);

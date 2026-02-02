@@ -20,6 +20,5 @@ Thumbs.db
 .env.test.local
 .env.production.local
 
-# Temporary files
-*.tmp
-*.temp
+# Whisper models
+models/

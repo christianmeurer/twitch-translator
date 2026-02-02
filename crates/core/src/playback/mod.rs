@@ -1,8 +1,10 @@
+mod audio;
 mod dummy;
 
 use crate::tts::TtsAudio;
 use futures::future::BoxFuture;
 
+pub use audio::AudioPlaybackSink;
 pub use dummy::DummyPlaybackSink;
 
 #[derive(thiserror::Error, Debug)]

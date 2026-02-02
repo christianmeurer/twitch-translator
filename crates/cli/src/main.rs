@@ -14,9 +14,9 @@ use twitch_translator_core::config::{
 use twitch_translator_core::decode::FfmpegAudioDecoder;
 use twitch_translator_core::ingest::{TwitchHlsIngestor, TwitchIngestOptions};
 use twitch_translator_core::pipeline::{Pipeline, PipelineConfig};
-use twitch_translator_core::playback::DummyPlaybackSink;
-use twitch_translator_core::translate::DummyTranslator;
-use twitch_translator_core::tts::BasicTtsClient;
+use twitch_translator_core::playback::AudioPlaybackSink;
+use twitch_translator_core::translate::DeepLTranslator;
+use twitch_translator_core::tts::ElevenLabsTtsClient;
 
 #[derive(Parser, Debug)]
 #[command(name = "twitch-translator")]
@@ -87,9 +87,20 @@ async fn run_ingest(cfg: AppConfig) -> anyhow::Result<()> {
     )?;
     let decoder = FfmpegAudioDecoder::default();
     let asr = WhisperAsrBackend::new("models/ggml-base.en.bin")?; // TODO: Make model path configurable
-    let translator = DummyTranslator::new();
-    let tts = BasicTtsClient::new();
-    let playback = DummyPlaybackSink::new();
+    let translator = if let Some(deepl_key) = cfg.api_keys.deepl.clone() {
+        DeepLTranslator::new(deepl_key.expose().to_string())
+    } else {
+        // Fallback to dummy translator if no API key is provided
+        return Err(anyhow::anyhow!("DeepL API key is required for translation"));
+    };
+    
+    let tts = if let Some(elevenlabs_key) = cfg.api_keys.elevenlabs.clone() {
+        ElevenLabsTtsClient::new(elevenlabs_key.expose().to_string())
+    } else {
+        // Fallback to basic TTS if no API key is provided
+        return Err(anyhow::anyhow!("ElevenLabs API key is required for TTS"));
+    };
+    let playback = AudioPlaybackSink::new()?;
 
     // Create pipeline
     let pipeline_config = PipelineConfig::from_app(&cfg);
