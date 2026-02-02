@@ -488,19 +488,26 @@ impl TwitchStreamLocator {
         }
 
         let body = serde_json::json!({
-            "operationName": "PlaybackAccessToken_Template",
+            "query": r#"
+                query PlaybackAccessToken($login: String!, $isLive: Boolean!, $vodID: ID!, $isVod: Boolean!, $playerType: String!) {
+                    streamPlaybackAccessToken(channelName: $login, params: {platform: "web", playerBackend: "mediaplayer", playerType: $playerType}) @include(if: $isLive) {
+                        value
+                        signature
+                        __typename
+                    }
+                    videoPlaybackAccessToken(id: $vodID, params: {platform: "web", playerBackend: "mediaplayer", playerType: $playerType}) @include(if: $isVod) {
+                        value
+                        signature
+                        __typename
+                    }
+                }
+            "#,
             "variables": {
                 "isLive": true,
                 "login": channel,
                 "isVod": false,
                 "vodID": "",
                 "playerType": "site"
-            },
-            "extensions": {
-                "persistedQuery": {
-                    "version": 1,
-                    "sha256Hash": "0828119ded94e3c6f6785b25a0f31a6b46c0c8e6d7f32cbb6fba58828a741b2e"
-                }
             }
         });
 
