@@ -22,3 +22,7 @@ Thumbs.db
 
 # Whisper models
 models/
+
+# Examples and scripts
+# examples/
+# scripts/

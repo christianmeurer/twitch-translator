@@ -86,7 +86,7 @@ async fn run_ingest(cfg: AppConfig) -> anyhow::Result<()> {
         TwitchIngestOptions::default(),
     )?;
     let decoder = FfmpegAudioDecoder::default();
-    let asr = WhisperAsrBackend::new("models/ggml-base.en.bin")?; // TODO: Make model path configurable
+    let asr = WhisperAsrBackend::new(&cfg.asr.model_path)?;
     let translator = if let Some(deepl_key) = cfg.api_keys.deepl.clone() {
         DeepLTranslator::new(deepl_key.expose().to_string())
     } else {
@@ -166,6 +166,7 @@ fn build_config(
         api_keys: ApiKeys { deepl, elevenlabs },
         latency,
         twitch,
+        asr: Default::default(),
         start_time: SystemTime::now(),
     })
 }

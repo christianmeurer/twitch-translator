@@ -24,6 +24,11 @@ A low-latency Twitch live translation system that captures audio from a Twitch s
 ```bash
 git clone https://github.com/your-username/twitch-translator.git
 cd twitch-translator
+
+# Download the Whisper model:
+# Linux/Mac: ./scripts/download-model.sh
+# Windows: scripts\download-model.bat
+
 cargo build --release
 ```
 

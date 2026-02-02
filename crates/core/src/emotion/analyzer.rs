@@ -69,7 +69,7 @@ impl EmotionAnalyzer for BasicEmotionAnalyzer {
             
             let emotion = if lower_text.contains("happy") || lower_text.contains("joy") || lower_text.contains("excited") {
                 Emotion::Happy
-            } else if lower_text.contains("sad") || lower_text.contains("depressed") || lower_text.contains("unhappy") {
+            } else if lower_text.contains("sad") || lower_text.contains("depressed") || lower_text.contains("unhappy") || lower_text.contains("terrible") {
                 Emotion::Sad
             } else if lower_text.contains("angry") || lower_text.contains("mad") || lower_text.contains("furious") {
                 Emotion::Angry
@@ -86,5 +86,22 @@ impl EmotionAnalyzer for BasicEmotionAnalyzer {
             Ok(emotion)
         }
         .boxed()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_basic_emotion_analyzer() {
+        let analyzer = BasicEmotionAnalyzer::new();
+        
+        // Test text analysis
+        let emotion = futures::executor::block_on(analyzer.analyze_text("I am happy today!".to_string())).unwrap();
+        assert_eq!(emotion, Emotion::Happy);
+        
+        let emotion = futures::executor::block_on(analyzer.analyze_text("This is terrible.".to_string())).unwrap();
+        assert_eq!(emotion, Emotion::Sad);
     }
 }

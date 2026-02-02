@@ -4,6 +4,19 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AsrConfig {
+    pub model_path: String,
+}
+
+impl Default for AsrConfig {
+    fn default() -> Self {
+        Self {
+            model_path: "models/ggml-base.en.bin".to_owned(),
+        }
+    }
+}
+
 pub const DEFAULT_TARGET_LANG: &str = "pt-BR";
 pub const DEFAULT_LATENCY_MS: u64 = 1500;
 pub const DEFAULT_TWITCH_WEB_CLIENT_ID: &str = "kimne78kx3ncx6brgo4mv6wki5h1ko";
@@ -108,6 +121,7 @@ pub struct AppConfig {
     pub api_keys: ApiKeys,
     pub latency: LatencyBudget,
     pub twitch: TwitchConfig,
+    pub asr: AsrConfig,
     pub start_time: SystemTime,
 }
 
