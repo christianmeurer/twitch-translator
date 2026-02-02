@@ -1,0 +1,18 @@
+[package]
+name = "twitch-translator-cli"
+edition.workspace = true
+version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "twitch-translator"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+twitch-translator-core = { path = "../core" }
+
