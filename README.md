@@ -47,6 +47,7 @@ cargo run --release -- --url <stream-url> --target-lang <language-code> --deepl-
 - `--channel <CHANNEL>`: Twitch channel name to translate
 - `--url <URL>`: Direct stream URL to translate
 - `--target-lang <TARGET_LANG>`: Target language for translation (default: pt-BR)
+  Supported languages: `BG`, `CS`, `DA`, `DE`, `EL`, `EN`, `EN-GB`, `EN-US`, `ES`, `ET`, `FI`, `FR`, `HU`, `ID`, `IT`, `JA`, `KO`, `LT`, `LV`, `NB`, `NL`, `PL`, `PT`, `PT-BR`, `PT-PT`, `RO`, `RU`, `SK`, `SL`, `SV`, `TR`, `UK`, `ZH`
 - `--deepl-api-key <DEEPL_API_KEY>`: DeepL API key for translation
 - `--elevenlabs-api-key <ELEVENLABS_API_KEY>`: ElevenLabs API key for TTS
 - `--latency-ms <LATENCY_MS>`: Target latency in milliseconds (default: 1500)
