@@ -69,25 +69,27 @@ impl Translator for DeepLTranslator {
                 .json(&request)
                 .send()
                 .await
-                .map_err(|_e| TranslateError::NotImplemented)?; // TODO: Better error handling
+                .map_err(TranslateError::Network)?;
 
             // Check if the request was successful
             if !response.status().is_success() {
-                return Err(TranslateError::NotImplemented); // TODO: Better error handling
+                let status = response.status();
+                let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+                return Err(TranslateError::Api(format!("HTTP {}: {}", status, error_text)));
             }
 
             // Parse the response
             let deepl_response: DeepLResponse = response
                 .json()
                 .await
-                .map_err(|_e| TranslateError::NotImplemented)?; // TODO: Better error handling
+                .map_err(|e| TranslateError::InvalidResponse(format!("Failed to parse JSON: {}", e)))?;
 
             // Extract the translation
             let translation = deepl_response
                 .translations
                 .into_iter()
                 .next()
-                .ok_or(TranslateError::NotImplemented)?; // TODO: Better error handling
+                .ok_or_else(|| TranslateError::InvalidResponse("No translations in response".to_string()))?;
 
             // Create the Translation object
             let result = Translation {

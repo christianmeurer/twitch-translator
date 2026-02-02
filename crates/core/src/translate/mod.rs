@@ -18,6 +18,15 @@ pub struct Translation {
 pub enum TranslateError {
     #[error("translation not implemented")]
     NotImplemented,
+    
+    #[error("network error: {0}")]
+    Network(#[from] reqwest::Error),
+    
+    #[error("invalid response: {0}")]
+    InvalidResponse(String),
+    
+    #[error("API error: {0}")]
+    Api(String),
 }
 
 pub trait Translator: Send + Sync {
