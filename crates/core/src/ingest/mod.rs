@@ -514,6 +514,10 @@ impl TwitchStreamLocator {
             .error_for_status()?;
 
         let v: serde_json::Value = resp.json().await?;
+        
+        // Log the response for debugging
+        tracing::debug!(response = ?v, "Twitch GQL response");
+        
         let token = v
             .pointer("/data/streamPlaybackAccessToken/value")
             .and_then(|x| x.as_str())
@@ -525,7 +529,10 @@ impl TwitchStreamLocator {
 
         match (token, sig) {
             (Some(t), Some(s)) => Ok((t, s)),
-            _ => Err(IngestError::TwitchGqlMissingFields),
+            _ => {
+                tracing::error!(response = ?v, "Missing required fields in Twitch GQL response");
+                Err(IngestError::TwitchGqlMissingFields)
+            }
         }
     }
 }
