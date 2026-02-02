@@ -1,0 +1,25 @@
+# Example configuration file for Twitch Translator
+
+# Input configuration
+input = { type = "channel", value = "twitch_channel_name" }
+# Alternative: input = { type = "url", value = "https://example.com/stream.m3u8" }
+
+# Target language for translation
+target_lang = "pt-BR"
+
+# Latency configuration (in milliseconds)
+latency_ms = 1500
+
+# Twitch API configuration
+[twitch]
+client_id = "your_twitch_client_id"
+oauth_token = "your_twitch_oauth_token"
+hls_audio_only = true
+
+# API keys (can also be set via environment variables)
+[api_keys]
+deepl = "your_deepl_api_key"
+elevenlabs = "your_elevenlabs_api_key"
+
+# Logging configuration
+log_level = "info"
