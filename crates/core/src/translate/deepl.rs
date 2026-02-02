@@ -48,9 +48,18 @@ impl Translator for DeepLTranslator {
         let this = self.clone();
         async move {
             // Prepare the request
+            // For most language codes, we use uppercase, but some have special cases
+            let target_lang = match target.as_str().to_lowercase().as_str() {
+                "pt-br" => "pt-BR".to_string(),
+                "pt-pt" => "pt-PT".to_string(),
+                "en-gb" => "en-GB".to_string(),
+                "en-us" => "en-US".to_string(),
+                _ => target.as_str().to_uppercase(),
+            };
+            
             let request = DeepLRequest {
                 text: vec![text],
-                target_lang: target.as_str().to_uppercase(),
+                target_lang,
                 source_lang: None, // Let DeepL detect the source language
             };
 
