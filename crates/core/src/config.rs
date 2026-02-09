@@ -24,6 +24,8 @@ pub const ENV_DEEPL_API_KEY: &str = "DEEPL_API_KEY";
 pub const ENV_ELEVENLABS_API_KEY: &str = "ELEVENLABS_API_KEY";
 pub const ENV_TWITCH_CLIENT_ID: &str = "TWITCH_CLIENT_ID";
 pub const ENV_TWITCH_OAUTH_TOKEN: &str = "TWITCH_OAUTH_TOKEN";
+pub const ENV_PIPER_BINARY: &str = "PIPER_BINARY";
+pub const ENV_PIPER_MODEL: &str = "PIPER_MODEL";
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum InputSource {
@@ -115,6 +117,21 @@ impl Default for LatencyBudget {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub struct PiperConfig {
+    pub binary_path: String,
+    pub model_path: String,
+}
+
+impl Default for PiperConfig {
+    fn default() -> Self {
+        Self {
+            binary_path: "piper".to_owned(),
+            model_path: "models/en_US-lessac-medium.onnx".to_owned(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AppConfig {
     pub input: InputSource,
     pub target_lang: TargetLang,
@@ -122,6 +139,7 @@ pub struct AppConfig {
     pub latency: LatencyBudget,
     pub twitch: TwitchConfig,
     pub asr: AsrConfig,
+    pub piper: PiperConfig,
     pub start_time: SystemTime,
 }
 

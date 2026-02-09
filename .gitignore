@@ -26,3 +26,7 @@ models/
 # Examples and scripts
 # examples/
 # scripts/
+
+# Config
+config.toml
+test_config.toml

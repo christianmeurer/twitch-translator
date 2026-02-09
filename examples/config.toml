@@ -21,5 +21,10 @@ hls_audio_only = true
 deepl = "your_deepl_api_key"
 elevenlabs = "your_elevenlabs_api_key"
 
+# Piper local TTS fallback (used when ElevenLabs quota runs out)
+[piper]
+binary_path = "piper"
+model_path = "models/en_US-lessac-medium.onnx"
+
 # Logging configuration
 log_level = "info"

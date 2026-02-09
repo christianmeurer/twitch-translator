@@ -1,10 +1,12 @@
 use crate::ingest::IngestItem;
 use bytes::Bytes;
-use ffmpeg_sidecar::{download, paths::ffmpeg_path};
 use futures::future::BoxFuture;
 use futures::FutureExt;
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, SystemTime};
+
+#[cfg(feature = "ffmpeg-sidecar")]
+use ffmpeg_sidecar::{download, paths::ffmpeg_path};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum PcmSampleType {
@@ -92,11 +94,19 @@ impl FfmpegAudioDecoder {
     }
 
     fn ensure_ffmpeg_available(&self) -> Result<()> {
-        download::auto_download().map_err(|e| DecodeError::FfmpegUnavailable(e.to_string()))
+        #[cfg(feature = "ffmpeg-sidecar")]
+        {
+            download::auto_download().map_err(|e| DecodeError::FfmpegUnavailable(e.to_string()))
+        }
+        #[cfg(not(feature = "ffmpeg-sidecar"))]
+        {
+            Err(DecodeError::FfmpegUnavailable("ffmpeg-sidecar feature not enabled".to_string()))
+        }
     }
 
+    #[cfg(feature = "ffmpeg-sidecar")]
     fn parse_f32le_mono(raw: &[u8]) -> Result<Vec<f32>> {
-        if !raw.len().is_multiple_of(4usize) {
+        if raw.len() % 4 != 0 {
             return Err(DecodeError::InvalidPcm(format!(
                 "f32le byte length must be multiple of 4, got {}",
                 raw.len()
@@ -117,6 +127,7 @@ impl FfmpegAudioDecoder {
         Duration::from_micros(micros.min(u128::from(u64::MAX)) as u64)
     }
 
+    #[cfg(feature = "ffmpeg-sidecar")]
     async fn decode_with_ffmpeg(&self, segment: Bytes) -> Result<Vec<f32>> {
         let fmt = self.output_format;
         if fmt.channels != 1 || fmt.sample_rate != 16_000 || fmt.sample_type != PcmSampleType::F32 {
@@ -125,30 +136,33 @@ impl FfmpegAudioDecoder {
             ));
         }
 
+        let segment_len = segment.len();
+        tracing::debug!("Decoding segment with FFmpeg, size: {} bytes", segment_len);
+
         // TODO: optimize to a persistent FFmpeg process to reduce per-segment spawn latency.
-        let mut child = tokio::process::Command::new(ffmpeg_path())
+        let ffmpeg_path = ffmpeg_path();
+        tracing::debug!("Using FFmpeg at: {:?}", ffmpeg_path);
+        
+        let mut child = tokio::process::Command::new(ffmpeg_path)
             .args([
                 "-hide_banner",
                 "-nostdin",
                 "-loglevel",
-                "error",
-                "-fflags",
-                "nobuffer",
-                "-flags",
-                "low_delay",
-                "-i",
-                "pipe:0",
-                "-vn",
-                "-sn",
-                "-dn",
-                "-ac",
-                "1",
-                "-ar",
-                "16000",
-                "-f",
-                "f32le",
-                "-acodec",
-                "pcm_f32le",
+                "warning",
+                // Help FFmpeg detect the format from the pipe faster
+                "-probesize", "10M",
+                "-analyzeduration", "10M",
+                // Explicitly tell FFmpeg the input is MPEG-TS (Twitch's format)
+                "-f", "mpegts", 
+                "-i", "pipe:0",
+                // Force map to any available audio stream
+                "-map", "0:a?",
+                "-vn", "-sn", "-dn",
+                "-ac", "1",
+                "-ar", "16000",
+                // Use f32le for Whisper compatibility
+                "-f", "f32le",
+                "-acodec", "pcm_f32le",
                 "pipe:1",
             ])
             .stdin(std::process::Stdio::piped())
@@ -208,15 +222,35 @@ impl FfmpegAudioDecoder {
             .map_err(|e| DecodeError::FfmpegFailed(e.to_string()))?
             .map_err(|e| DecodeError::FfmpegFailed(e.to_string()))?;
 
+        // Log FFmpeg stderr for debugging (even on success)
+        if !stderr_bytes.is_empty() {
+            let stderr_s = String::from_utf8_lossy(&stderr_bytes).trim().to_owned();
+            if !stderr_s.is_empty() {
+                tracing::warn!("FFmpeg stderr: {}", stderr_s);
+            }
+        }
+
         if !status.success() {
             let stderr_s = String::from_utf8_lossy(&stderr_bytes).trim().to_owned();
+            tracing::error!("FFmpeg failed with exit_code={:?} stderr={}", status.code(), stderr_s);
             return Err(DecodeError::FfmpegFailed(format!(
                 "exit_code={:?} stderr={stderr_s}",
                 status.code()
             )));
         }
 
+        tracing::debug!("FFmpeg decoded {} bytes to {} samples", segment_len, stdout_bytes.len() / 4);
+        
+        if stdout_bytes.is_empty() {
+            tracing::warn!("FFmpeg produced empty output for segment of {} bytes", segment_len);
+        }
+
         Self::parse_f32le_mono(&stdout_bytes)
+    }
+    
+    #[cfg(not(feature = "ffmpeg-sidecar"))]
+    async fn decode_with_ffmpeg(&self, _segment: Bytes) -> Result<Vec<f32>> {
+        Err(DecodeError::FfmpegUnavailable("ffmpeg-sidecar feature not enabled".to_string()))
     }
 }
 
@@ -281,6 +315,7 @@ mod tests {
         assert_eq!(d.as_secs(), 1);
     }
 
+    #[cfg(feature = "ffmpeg-sidecar")]
     #[test]
     fn parse_f32le_rejects_non_multiple_of_4() {
         let err = FfmpegAudioDecoder::parse_f32le_mono(&[0, 1, 2]).unwrap_err();
@@ -288,6 +323,7 @@ mod tests {
         assert!(s.contains("multiple of 4"));
     }
 
+    #[cfg(feature = "ffmpeg-sidecar")]
     #[test]
     fn parse_f32le_roundtrip() {
         let input = [0.0f32, -0.5f32, 1.0f32];

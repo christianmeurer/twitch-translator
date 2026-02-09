@@ -11,6 +11,9 @@ pub use dummy::DummyPlaybackSink;
 pub enum PlaybackError {
     #[error("playback not implemented")]
     NotImplemented,
+
+    #[error("audio output unavailable: {details}")]
+    AudioOutputUnavailable { details: String },
 }
 
 pub trait PlaybackSink: Send + Sync {

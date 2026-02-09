@@ -4,19 +4,26 @@ use anyhow::Context;
 use clap::{ArgGroup, Parser};
 use std::time::SystemTime;
 use tracing_subscriber::EnvFilter;
+#[cfg(feature = "whisper-rs")]
 use twitch_translator_core::asr::WhisperAsrBackend;
+#[cfg(feature = "whisper-rs")]
+use twitch_translator_core::decode::FfmpegAudioDecoder;
+#[cfg(feature = "whisper-rs")]
+use twitch_translator_core::ingest::{TwitchHlsIngestor, TwitchIngestOptions};
+#[cfg(feature = "whisper-rs")]
+use twitch_translator_core::pipeline::{Pipeline, PipelineConfig};
+#[cfg(feature = "whisper-rs")]
+use twitch_translator_core::playback::AudioPlaybackSink;
+#[cfg(feature = "whisper-rs")]
+use twitch_translator_core::translate::DeepLTranslator;
+#[cfg(feature = "whisper-rs")]
+use twitch_translator_core::tts::{ElevenLabsTtsClient, FallbackTtsClient, PiperTtsClient};
 use twitch_translator_core::config::{
     resolve_api_key, resolve_optional_string, resolve_string_with_default, ApiKeys, AppConfig,
-    InputSource, LatencyBudget, StdEnv, TargetLang, TwitchConfig, DEFAULT_LATENCY_MS,
+    InputSource, LatencyBudget, PiperConfig, StdEnv, TargetLang, TwitchConfig, DEFAULT_LATENCY_MS,
     DEFAULT_TARGET_LANG, DEFAULT_TWITCH_WEB_CLIENT_ID, ENV_DEEPL_API_KEY, ENV_ELEVENLABS_API_KEY,
-    ENV_TWITCH_CLIENT_ID, ENV_TWITCH_OAUTH_TOKEN,
+    ENV_PIPER_BINARY, ENV_PIPER_MODEL, ENV_TWITCH_CLIENT_ID, ENV_TWITCH_OAUTH_TOKEN,
 };
-use twitch_translator_core::decode::FfmpegAudioDecoder;
-use twitch_translator_core::ingest::{TwitchHlsIngestor, TwitchIngestOptions};
-use twitch_translator_core::pipeline::{Pipeline, PipelineConfig};
-use twitch_translator_core::playback::AudioPlaybackSink;
-use twitch_translator_core::translate::DeepLTranslator;
-use twitch_translator_core::tts::ElevenLabsTtsClient;
 
 #[derive(Parser, Debug)]
 #[command(name = "twitch-translator")]
@@ -55,6 +62,12 @@ struct Args {
     #[arg(long, default_value_t = true)]
     hls_audio_only: bool,
 
+    #[arg(long, env = ENV_PIPER_BINARY)]
+    piper_binary: Option<String>,
+
+    #[arg(long, env = ENV_PIPER_MODEL)]
+    piper_model: Option<String>,
+
     #[arg(long, default_value = "info")]
     log_level: String,
 }
@@ -78,8 +91,8 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "whisper-rs")]
 async fn run_ingest(cfg: AppConfig) -> anyhow::Result<()> {
-    // Create pipeline components
     let ingestor = TwitchHlsIngestor::new(
         cfg.twitch.clone(),
         cfg.input.clone(),
@@ -90,20 +103,40 @@ async fn run_ingest(cfg: AppConfig) -> anyhow::Result<()> {
     let translator = if let Some(deepl_key) = cfg.api_keys.deepl.clone() {
         DeepLTranslator::new(deepl_key.expose().to_string())
     } else {
-        // Fallback to dummy translator if no API key is provided
         return Err(anyhow::anyhow!("DeepL API key is required for translation"));
     };
-    
-    let tts = if let Some(elevenlabs_key) = cfg.api_keys.elevenlabs.clone() {
-        ElevenLabsTtsClient::new(elevenlabs_key.expose().to_string())
-    } else {
-        // Fallback to basic TTS if no API key is provided
-        return Err(anyhow::anyhow!("ElevenLabs API key is required for TTS"));
-    };
-    let playback = AudioPlaybackSink::new()?;
-
-    // Create pipeline
+    let playback = AudioPlaybackSink::new()
+        .context("failed to initialise audio playback")?;
     let pipeline_config = PipelineConfig::from_app(&cfg);
+
+    if let Some(elevenlabs_key) = cfg.api_keys.elevenlabs.clone() {
+        let primary = ElevenLabsTtsClient::new(elevenlabs_key.expose().to_string());
+        let local = PiperTtsClient::new(
+            cfg.piper.binary_path.clone().into(),
+            cfg.piper.model_path.clone().into(),
+        );
+        let tts = FallbackTtsClient::new(primary, local);
+        run_pipeline(ingestor, decoder, asr, translator, tts, playback, pipeline_config).await
+    } else {
+        tracing::warn!("ELEVENLABS_API_KEY not set, cloud TTS disabled; using local Piper TTS only");
+        let tts = PiperTtsClient::new(
+            cfg.piper.binary_path.clone().into(),
+            cfg.piper.model_path.clone().into(),
+        );
+        run_pipeline(ingestor, decoder, asr, translator, tts, playback, pipeline_config).await
+    }
+}
+
+#[cfg(feature = "whisper-rs")]
+async fn run_pipeline<Ts: twitch_translator_core::tts::TtsClient + Clone + 'static>(
+    ingestor: TwitchHlsIngestor,
+    decoder: FfmpegAudioDecoder,
+    asr: WhisperAsrBackend,
+    translator: DeepLTranslator,
+    tts: Ts,
+    playback: AudioPlaybackSink,
+    pipeline_config: PipelineConfig,
+) -> anyhow::Result<()> {
     let pipeline = Pipeline {
         ingest: ingestor,
         decode: decoder,
@@ -113,11 +146,15 @@ async fn run_ingest(cfg: AppConfig) -> anyhow::Result<()> {
         playback,
         config: pipeline_config,
     };
-
-    // Run pipeline
     pipeline.run().await?;
-
     Ok(())
+}
+
+#[cfg(not(feature = "whisper-rs"))]
+async fn run_ingest(_cfg: AppConfig) -> anyhow::Result<()> {
+    Err(anyhow::anyhow!(
+        "Whisper ASR feature is not enabled. Please install libclang and rebuild with --features whisper-rs"
+    ))
 }
 
 fn init_tracing(level: &str) -> anyhow::Result<()> {
@@ -160,6 +197,21 @@ fn build_config(
         hls_audio_only: args.hls_audio_only,
     };
 
+    let piper = PiperConfig {
+        binary_path: resolve_string_with_default(
+            args.piper_binary,
+            ENV_PIPER_BINARY,
+            env,
+            &PiperConfig::default().binary_path,
+        ),
+        model_path: resolve_string_with_default(
+            args.piper_model,
+            ENV_PIPER_MODEL,
+            env,
+            &PiperConfig::default().model_path,
+        ),
+    };
+
     Ok(AppConfig {
         input,
         target_lang,
@@ -167,6 +219,7 @@ fn build_config(
         latency,
         twitch,
         asr: Default::default(),
+        piper,
         start_time: SystemTime::now(),
     })
 }

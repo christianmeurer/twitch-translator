@@ -21,16 +21,20 @@ A low-latency Twitch live translation system that captures audio from a Twitch s
 
 ## Installation
 
+For detailed installation instructions, please see [INSTALL.md](INSTALL.md).
+
 ```bash
 git clone https://github.com/your-username/twitch-translator.git
 cd twitch-translator
 
-# Download the Whisper model:
-# Linux/Mac: ./scripts/download-model.sh
-# Windows: scripts\download-model.bat
+# RECOMMENDED: Minimal build (without ASR - works on all platforms):
+cargo build --release --no-default-features
 
-cargo build --release
+# Advanced: Full build (with ASR - requires additional dependencies):
+# See INSTALL.md for platform-specific instructions
 ```
+
+**Important**: The minimal build (`--no-default-features`) is recommended for most users as it works on all platforms and includes all functionality except speech recognition. Use the full build only if you specifically need ASR capabilities and are prepared to handle complex dependency requirements.
 
 ## Usage
 

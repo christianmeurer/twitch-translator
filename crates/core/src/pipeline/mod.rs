@@ -1,6 +1,10 @@
 use crate::{
-    asr::AsrBackend,
     config::{ApiKeys, AppConfig, LatencyBudget},
+};
+
+#[cfg(feature = "whisper-rs")]
+use crate::{
+    asr::AsrBackend,
     decode::AudioDecoder,
     ingest::Ingestor,
     playback::PlaybackSink,
@@ -20,6 +24,7 @@ pub enum PipelineError {
 pub struct PipelineConfig {
     pub latency: LatencyBudget,
     pub api_keys: ApiKeys,
+    pub target_lang: crate::config::TargetLang,
 }
 
 impl PipelineConfig {
@@ -27,10 +32,12 @@ impl PipelineConfig {
         Self {
             latency: app.latency,
             api_keys: app.api_keys.clone(),
+            target_lang: app.target_lang.clone(),
         }
     }
 }
 
+#[cfg(feature = "whisper-rs")]
 pub struct Pipeline<I, D, A, Tr, Ts, P> {
     pub ingest: I,
     pub decode: D,
@@ -41,6 +48,7 @@ pub struct Pipeline<I, D, A, Tr, Ts, P> {
     pub config: PipelineConfig,
 }
 
+#[cfg(feature = "whisper-rs")]
 impl<I, D, A, Tr, Ts, P> Pipeline<I, D, A, Tr, Ts, P>
 where
     I: Ingestor + Clone + 'static,
@@ -53,7 +61,7 @@ where
     pub async fn run(&self) -> Result<(), PipelineError> {
         // Create channels for communication between components
         let (ingest_tx, mut ingest_rx) =
-            tokio::sync::mpsc::channel::<crate::ingest::IngestPacket>(self.channel_capacity());
+            tokio::sync::mpsc::channel::<crate::ingest::IngestItem>(self.channel_capacity());
         let (pcm_tx, mut pcm_rx) =
             tokio::sync::mpsc::channel::<crate::decode::PcmChunk>(self.channel_capacity());
         let (transcript_tx, mut transcript_rx) =
@@ -79,16 +87,7 @@ where
             let decode = self.decode.clone();
             tokio::spawn(async move {
                 while let Some(packet) = ingest_rx.recv().await {
-                    // Convert IngestPacket to IngestItem
-                    let item = crate::ingest::IngestItem {
-                        sequence: 0, // TODO: Generate proper sequence numbers
-                        fetched_at: packet.received_at,
-                        url: url::Url::parse("https://example.com/segment.ts").unwrap(), // TODO: Generate proper URLs
-                        approx_duration: packet.approx_duration,
-                        bytes: bytes::Bytes::from(packet.bytes),
-                    };
-
-                    match decode.decode_segment(item).await {
+                    match decode.decode_segment(packet).await {
                         Ok(pcm) => {
                             if pcm_tx.send(pcm).await.is_err() {
                                 tracing::error!("pcm channel closed");
@@ -128,21 +127,35 @@ where
         // Start the translator
         let translate_task = {
             let translate = self.translate.clone();
-            let target_lang = crate::config::TargetLang("English".to_string()); // TODO: Make configurable
+            let target_lang = self.config.target_lang.clone();
+            let has_deepl_key = self.config.api_keys.deepl.is_some();
             tokio::spawn(async move {
                 while let Some(transcript) = transcript_rx.recv().await {
-                    match translate
-                        .translate(transcript.text, target_lang.clone())
-                        .await
-                    {
-                        Ok(translation) => {
-                            if translation_tx.send(translation).await.is_err() {
-                                tracing::error!("translation channel closed");
-                                return Err(PipelineError::ChannelClosed);
+                    if has_deepl_key {
+                        // Use DeepL translator with the configured target language
+                        match translate
+                            .translate(transcript.text, target_lang.clone())
+                            .await
+                        {
+                            Ok(translation) => {
+                                if translation_tx.send(translation).await.is_err() {
+                                    tracing::error!("translation channel closed");
+                                    return Err(PipelineError::ChannelClosed);
+                                }
+                            }
+                            Err(e) => {
+                                tracing::warn!(error = %e, "translation failed");
                             }
                         }
-                        Err(e) => {
-                            tracing::warn!(error = %e, "translation failed");
+                    } else {
+                        // If no DeepL API key (dummy translator), pass through the text
+                        let translation = crate::translate::Translation {
+                            text: transcript.text,
+                            detected_source_lang: None,
+                        };
+                        if translation_tx.send(translation).await.is_err() {
+                            tracing::error!("translation channel closed");
+                            return Err(PipelineError::ChannelClosed);
                         }
                     }
                 }
